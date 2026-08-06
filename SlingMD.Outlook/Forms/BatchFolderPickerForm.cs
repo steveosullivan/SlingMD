@@ -42,6 +42,13 @@ namespace SlingMD.Outlook.Forms
         /// </summary>
         public string SelectedFolderPath { get; private set; } = string.Empty;
 
+        /// <summary>
+        /// True when <see cref="SelectedFolderPath"/> did not exist and this dialog created it, as
+        /// opposed to the user picking a folder that was already there. Callers use this to clean up
+        /// an empty folder when the sling that requested it ends up writing nothing.
+        /// </summary>
+        public bool CreatedNewFolder { get; private set; }
+
         public BatchFolderPickerForm(int emailCount, string inboxPath)
         {
             _inboxPath = inboxPath ?? string.Empty;
@@ -318,9 +325,11 @@ namespace SlingMD.Outlook.Forms
                 return;
             }
 
+            bool preExisting = Directory.Exists(fullPath);
             try
             {
                 Directory.CreateDirectory(fullPath);
+                CreatedNewFolder = !preExisting;
             }
             catch (System.Exception ex)
             {

@@ -157,6 +157,69 @@ namespace SlingMD.Tests.Forms
                     Assert.Equal(BatchFolderPickerForm.PickerResult.UseSubfolder, form.Result);
                     Assert.Equal(Path.Combine(inbox, "Q3 Renewals"), form.SelectedFolderPath);
                     Assert.True(Directory.Exists(form.SelectedFolderPath));
+                    Assert.True(form.CreatedNewFolder);
+                }
+
+                Directory.Delete(inbox, true);
+            });
+        }
+
+        [Fact]
+        public void TypedNameMatchingExistingFolder_IsNotReportedAsNewlyCreated()
+        {
+            // The caller deletes a folder it created when the sling writes nothing. Reporting a
+            // pre-existing folder as "created" would make that cleanup delete the user's own folder.
+            RunSta(() =>
+            {
+                string inbox = NewTempInbox();
+                Directory.CreateDirectory(Path.Combine(inbox, "Projects"));
+
+                using (BatchFolderPickerForm form = new BatchFolderPickerForm(1, inbox))
+                {
+                    GetControl<TextBox>(form, "_txtNewFolder").Text = "Projects";
+                    InvokeClick(form, "BtnOk_Click");
+
+                    Assert.Equal(BatchFolderPickerForm.PickerResult.UseSubfolder, form.Result);
+                    Assert.False(form.CreatedNewFolder);
+                    Assert.True(Directory.Exists(form.SelectedFolderPath));
+                }
+
+                Directory.Delete(inbox, true);
+            });
+        }
+
+        [Fact]
+        public void SelectingExistingFolderFromList_IsNotReportedAsNewlyCreated()
+        {
+            RunSta(() =>
+            {
+                string inbox = NewTempInbox();
+                Directory.CreateDirectory(Path.Combine(inbox, "Clients"));
+
+                using (BatchFolderPickerForm form = new BatchFolderPickerForm(1, inbox))
+                {
+                    GetControl<ListBox>(form, "_lstFolders").SelectedIndex = 0;
+                    InvokeClick(form, "BtnOk_Click");
+
+                    Assert.Equal(Path.Combine(inbox, "Clients"), form.SelectedFolderPath);
+                    Assert.False(form.CreatedNewFolder);
+                }
+
+                Directory.Delete(inbox, true);
+            });
+        }
+
+        [Fact]
+        public void Skip_ReportsNoNewlyCreatedFolder()
+        {
+            RunSta(() =>
+            {
+                string inbox = NewTempInbox();
+
+                using (BatchFolderPickerForm form = new BatchFolderPickerForm(1, inbox))
+                {
+                    InvokeClick(form, "BtnSkip_Click");
+                    Assert.False(form.CreatedNewFolder);
                 }
 
                 Directory.Delete(inbox, true);
