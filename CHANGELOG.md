@@ -9,6 +9,12 @@ All notable changes to SlingMD are documented in this file.
 > keep a backup of your vault. Prefer [1.2.3.0](https://github.com/Caleb68864/SlingMD/releases/tag/v1.2.3.0)
 > if you need a stable build.
 
+> **You must uninstall 1.2.3.0 before installing this build.** The signing certificate changed
+> (`CN=AzureAD\CalebBennett` → `CN=SlingMD Development`), because the previous one expired on
+> 2026-03-22. ClickOnce treats a different publisher as a different product, so it will refuse to
+> update in place. Remove SlingMD via *Settings → Apps* first, then run `setup.exe`. Your settings
+> live in AppData and are not affected.
+
 ### Added
 
 #### Choose a destination folder when slinging a single email
