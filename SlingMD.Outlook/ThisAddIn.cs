@@ -375,7 +375,59 @@ namespace SlingMD.Outlook
 
                 if (mail != null)
                 {
-                    await _emailProcessor.ProcessEmail(mail);
+                    // When the user has opted into per-sling folder routing, ask where this one email
+                    // should land. Mirrors SlingMultipleEmails: never mutate the shared live settings —
+                    // route through a cloned settings/processor so background and auto slings keep
+                    // writing to the real Inbox.
+                    EmailProcessor singleProcessor = _emailProcessor;
+                    string routedFolder = null;
+                    bool routedFolderIsNew = false;
+                    if (_settings.PromptForFolderOnSling)
+                    {
+                        BatchFolderPickerForm.PickerResult pick;
+                        string chosenFolder;
+                        bool createdNew;
+                        using (BatchFolderPickerForm picker = new BatchFolderPickerForm(1, _settings.GetInboxPath()))
+                        {
+                            picker.ShowDialog();
+                            pick = picker.Result;
+                            chosenFolder = picker.SelectedFolderPath;
+                            createdNew = picker.CreatedNewFolder;
+                        }
+
+                        if (pick == BatchFolderPickerForm.PickerResult.Cancel)
+                        {
+                            return;
+                        }
+
+                        if (pick == BatchFolderPickerForm.PickerResult.UseSubfolder
+                            && !string.IsNullOrEmpty(chosenFolder))
+                        {
+                            string subName = System.IO.Path.GetFileName(
+                                chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+
+                            // An empty leaf would make InboxFolder collapse back to the Inbox itself.
+                            // Falling through to the default processor says that plainly.
+                            if (!string.IsNullOrEmpty(subName))
+                            {
+                                // NOTE: this clone's InboxFolder holds a two-segment relative path
+                                // ("Inbox\Sub"), which ValidateFolderName rejects. It is safe only
+                                // because a clone is never Save()d — Save() runs against the live
+                                // _settings alone. Do not persist this object.
+                                ObsidianSettings singleSettings = _settings.Clone();
+                                singleSettings.InboxFolder = System.IO.Path.Combine(_settings.InboxFolder, subName);
+                                singleProcessor = new EmailProcessor(singleSettings);
+                                routedFolder = chosenFolder;
+                                routedFolderIsNew = createdNew;
+                            }
+                        }
+                    }
+
+                    bool slung = await singleProcessor.ProcessEmail(mail);
+                    if (!slung)
+                    {
+                        RemoveFolderIfUnused(routedFolder, routedFolderIsNew);
+                    }
                 }
                 else if (appointment != null)
                 {
@@ -471,6 +523,35 @@ namespace SlingMD.Outlook
         }
 
         /// <summary>
+        /// Removes a folder the picker created when the sling it was created for wrote nothing —
+        /// a duplicate email, for instance, returns early without producing a note. Without this
+        /// the vault accumulates empty folders from slings that visibly did nothing.
+        /// Only removes a folder this run created, and only while it is still empty.
+        /// </summary>
+        private static void RemoveFolderIfUnused(string folderPath, bool createdByPicker)
+        {
+            if (!createdByPicker || string.IsNullOrEmpty(folderPath))
+            {
+                return;
+            }
+
+            try
+            {
+                if (Directory.Exists(folderPath)
+                    && Directory.GetFileSystemEntries(folderPath).Length == 0)
+                {
+                    Directory.Delete(folderPath);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                // Best-effort tidy-up. A stray empty folder is a cosmetic problem; failing the
+                // sling over it, or surfacing a dialog, would be worse.
+                Logger.Instance.Debug($"Could not remove unused sling folder '{folderPath}': {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Slings every selected email at once. Prompts (via <see cref="BatchFolderPickerForm"/>) for
         /// an Inbox subfolder to route the batch into (or the default Inbox), then processes each email
         /// automatically — no per-email contact/task dialogs and a single Obsidian launch at the end.
@@ -518,11 +599,13 @@ namespace SlingMD.Outlook
                 string inboxPath = _settings.GetInboxPath();
                 BatchFolderPickerForm.PickerResult pick;
                 string chosenFolder;
+                bool chosenFolderIsNew;
                 using (BatchFolderPickerForm picker = new BatchFolderPickerForm(mails.Count, inboxPath))
                 {
                     picker.ShowDialog();
                     pick = picker.Result;
                     chosenFolder = picker.SelectedFolderPath;
+                    chosenFolderIsNew = picker.CreatedNewFolder;
                 }
 
                 if (pick == BatchFolderPickerForm.PickerResult.Cancel)
@@ -557,6 +640,11 @@ namespace SlingMD.Outlook
                     {
                         slung++;
                     }
+                }
+
+                if (slung == 0)
+                {
+                    RemoveFolderIfUnused(useSubfolder ? chosenFolder : null, chosenFolderIsNew);
                 }
 
                 // Launch Obsidian once, honoring the user's setting, using a vault-relative path

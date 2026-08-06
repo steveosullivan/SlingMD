@@ -26,6 +26,7 @@ namespace SlingMD.Outlook.Forms
 
         // Email tab controls
         private TextBox txtInboxFolder;
+        private CheckBox chkPromptForFolderOnSling;
         private TextBox txtNoteTitleFormat;
         private NumericUpDown numNoteTitleMaxLength;
         private CheckBox chkNoteTitleIncludeDate;
@@ -312,6 +313,15 @@ namespace SlingMD.Outlook.Forms
             this.txtInboxFolder = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
             emailTabLayout.Controls.Add(this.txtInboxFolder, 1, eRow++);
             BindHelp("Email.InboxFolder", lblInboxFolder, txtInboxFolder);
+
+            FlowLayoutPanel promptFolderPanel = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Anchor = AnchorStyles.Left };
+            Label lblPromptForFolderOnSling = new Label { Text = "Ask Where to Sling:", Anchor = AnchorStyles.Left, AutoSize = true, TextAlign = ContentAlignment.MiddleLeft };
+            this.chkPromptForFolderOnSling = new CheckBox { Anchor = AnchorStyles.Left };
+            promptFolderPanel.Controls.Add(lblPromptForFolderOnSling);
+            promptFolderPanel.Controls.Add(this.chkPromptForFolderOnSling);
+            emailTabLayout.Controls.Add(new Label(), 0, eRow);
+            emailTabLayout.Controls.Add(promptFolderPanel, 1, eRow++);
+            BindHelp("Email.PromptForFolderOnSling", lblPromptForFolderOnSling, chkPromptForFolderOnSling);
 
             this.lblNoteTitleFormat = new Label { Text = "Note Title Format:", AutoSize = false, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Dock = DockStyle.Fill };
             this.txtNoteTitleFormat = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, Dock = DockStyle.Fill };
@@ -1057,6 +1067,7 @@ namespace SlingMD.Outlook.Forms
 
             // Email tab
             txtInboxFolder.Text = _settings.InboxFolder;
+            chkPromptForFolderOnSling.Checked = _settings.PromptForFolderOnSling;
             txtNoteTitleFormat.Text = _settings.NoteTitleFormat ?? "{Subject} - {Date}";
             SetClamped(numNoteTitleMaxLength, _settings.NoteTitleMaxLength > 0 ? _settings.NoteTitleMaxLength : 50);
             chkNoteTitleIncludeDate.Checked = _settings.NoteTitleIncludeDate;
@@ -1186,6 +1197,7 @@ namespace SlingMD.Outlook.Forms
 
             // Email tab
             _settings.InboxFolder = txtInboxFolder.Text;
+            _settings.PromptForFolderOnSling = chkPromptForFolderOnSling.Checked;
             _settings.NoteTitleFormat = txtNoteTitleFormat.Text.Trim();
             _settings.NoteTitleMaxLength = (int)numNoteTitleMaxLength.Value;
             _settings.NoteTitleIncludeDate = chkNoteTitleIncludeDate.Checked;

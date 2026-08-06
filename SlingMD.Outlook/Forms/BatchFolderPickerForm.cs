@@ -8,7 +8,8 @@ using System.Windows.Forms;
 namespace SlingMD.Outlook.Forms
 {
     /// <summary>
-    /// Folder picker used when slinging multiple emails at once. Lets the user choose an existing
+    /// Folder picker used when slinging emails — for a batch, and for a single email when
+    /// <see cref="Models.ObsidianSettings.PromptForFolderOnSling"/> is enabled. Lets the user choose an existing
     /// subfolder under the configured Inbox path, type a new one to be created, or skip and use the
     /// default Inbox path.
     /// </summary>
@@ -22,6 +23,7 @@ namespace SlingMD.Outlook.Forms
         }
 
         private readonly string _inboxPath;
+        private readonly bool _inboxPathUsable;
         private ListBox _lstFolders;
         private TextBox _txtNewFolder;
         private Label _lblHeader;
@@ -40,11 +42,64 @@ namespace SlingMD.Outlook.Forms
         /// </summary>
         public string SelectedFolderPath { get; private set; } = string.Empty;
 
+        /// <summary>
+        /// True when <see cref="SelectedFolderPath"/> did not exist and this dialog created it, as
+        /// opposed to the user picking a folder that was already there. Callers use this to clean up
+        /// an empty folder when the sling that requested it ends up writing nothing.
+        /// </summary>
+        public bool CreatedNewFolder { get; private set; }
+
         public BatchFolderPickerForm(int emailCount, string inboxPath)
         {
             _inboxPath = inboxPath ?? string.Empty;
+            _inboxPathUsable = IsUsableInboxPath(_inboxPath);
             InitializeComponents(emailCount);
             PopulateExistingFolders();
+
+            if (!_inboxPathUsable)
+            {
+                // Creating a subfolder is meaningless (and potentially destructive) when we cannot
+                // tell where the Inbox actually is. Leave Skip/Cancel usable so the user can still
+                // sling to whatever the add-in has configured, or back out.
+                _lblExisting.Text = "Vault path is not configured — set it in Settings to pick a folder.";
+                _lstFolders.Enabled = false;
+                _txtNewFolder.Enabled = false;
+                _btnOk.Enabled = false;
+            }
+        }
+
+        /// <summary>
+        /// True when the configured Inbox path is absolute and well-formed, so subfolders can be
+        /// created under it safely. A blank or relative path — which <see cref="Models.ObsidianSettings.GetInboxPath"/>
+        /// happily returns when VaultBasePath is unset — would otherwise resolve against Outlook's
+        /// working directory and silently create vault folders next to OUTLOOK.EXE. An empty path is
+        /// worse still: Path.GetFullPath("") throws straight out of the OK handler.
+        /// </summary>
+        private static bool IsUsableInboxPath(string inboxPath)
+        {
+            if (string.IsNullOrWhiteSpace(inboxPath))
+            {
+                return false;
+            }
+
+            // Root-check the raw input, never the resolved result: Path.GetFullPath resolves a
+            // relative path against the working directory, so its output is always rooted and
+            // would wave through exactly the case this guard exists to catch.
+            if (!Path.IsPathRooted(inboxPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                Path.GetFullPath(inboxPath);
+                return true;
+            }
+            catch (System.Exception)
+            {
+                // Invalid characters, path too long, unsupported format — all mean "not usable".
+                return false;
+            }
         }
 
         private void InitializeComponents(int emailCount)
@@ -120,7 +175,7 @@ namespace SlingMD.Outlook.Forms
                 _btnOk, _btnSkip, _btnCancel
             });
 
-            this.Text = "Sling Multiple Emails";
+            this.Text = emailCount == 1 ? "Sling Email" : "Sling Multiple Emails";
             this.ClientSize = new Size(464, _btnOk.Bottom + 12);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -204,6 +259,13 @@ namespace SlingMD.Outlook.Forms
 
         private void BtnOk_Click(object sender, EventArgs e)
         {
+            // Belt and braces: the button is already disabled in this state, but an AcceptButton
+            // Enter-press must never reach the path arithmetic below with an unusable inbox.
+            if (!_inboxPathUsable)
+            {
+                return;
+            }
+
             string typed = (_txtNewFolder.Text ?? string.Empty).Trim();
             string selected = _lstFolders.SelectedItem as string;
 
@@ -233,8 +295,25 @@ namespace SlingMD.Outlook.Forms
 
             // Defense in depth: ensure the resolved target really is directly under the inbox and did
             // not escape via a crafted name (e.g. trailing-dot/space normalization).
-            string resolvedInbox = Path.GetFullPath(_inboxPath);
-            string resolvedTarget = Path.GetFullPath(fullPath);
+            string resolvedInbox;
+            string resolvedTarget;
+            try
+            {
+                resolvedInbox = Path.GetFullPath(_inboxPath);
+                resolvedTarget = Path.GetFullPath(fullPath);
+            }
+            catch (System.Exception ex)
+            {
+                // A name that survives IsValidFolderName can still blow the path-length limit once
+                // combined with the inbox path. Report it instead of crashing the click handler.
+                MessageBox.Show(
+                    string.Format("That folder name cannot be resolved to a valid path:\n{0}", ex.Message),
+                    "SlingMD",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             string inboxPrefix = resolvedInbox.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
             if (!resolvedTarget.StartsWith(inboxPrefix, StringComparison.OrdinalIgnoreCase))
             {
@@ -246,9 +325,11 @@ namespace SlingMD.Outlook.Forms
                 return;
             }
 
+            bool preExisting = Directory.Exists(fullPath);
             try
             {
                 Directory.CreateDirectory(fullPath);
+                CreatedNewFolder = !preExisting;
             }
             catch (System.Exception ex)
             {
