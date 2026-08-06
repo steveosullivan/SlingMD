@@ -2,6 +2,37 @@
 
 All notable changes to SlingMD are documented in this file.
 
+## [1.2.4.0-alpha] - 2026-08-06
+
+> **Alpha release — lightly tested.** The features below are verified by unit tests and code
+> review, but have not been exercised against a live Outlook install. Expect rough edges, and
+> keep a backup of your vault. Prefer [1.2.3.0](https://github.com/Caleb68864/SlingMD/releases/tag/v1.2.3.0)
+> if you need a stable build.
+
+### Added
+
+#### Choose a destination folder when slinging a single email
+- **New `Ask Where to Sling` setting** (Email tab, **off** by default). When enabled, slinging one
+  email opens a folder picker listing the subfolders under your Inbox folder, where you can also
+  type a new one to create. *Skip* writes to the Inbox folder as usual; *Cancel* aborts the sling.
+  Previously only a multi-email batch sling could choose a destination — a single sling always went
+  to the configured Inbox folder. Resolves [#14](https://github.com/Caleb68864/SlingMD/issues/14).
+- The chosen folder is applied to an isolated copy of your settings, so background and auto-slings
+  running at the same time keep writing to the real Inbox.
+
+### Fixed
+
+- **Folder picker no longer crashes when the vault path is unconfigured.** A blank Inbox path
+  reached `Path.GetFullPath("")`, which threw straight out of the OK handler. The picker now
+  disables folder creation and explains why.
+- **Folder picker no longer creates vault folders next to `OUTLOOK.EXE`.** When `VaultBasePath` was
+  unset the Inbox path resolved to a *relative* path, silently creating folders in Outlook's working
+  directory with no error. The picker now requires an absolute, well-formed path.
+- **Empty folders are no longer left behind by a sling that writes nothing.** The picker creates the
+  destination folder on OK, but a sling can still stop early — slinging an already-slung email hits
+  the duplicate check and writes no note. Such a folder is now removed, but only if this run created
+  it and only while it is still empty, so a folder you picked is never touched.
+
 ## [Unreleased]
 
 ### Added
