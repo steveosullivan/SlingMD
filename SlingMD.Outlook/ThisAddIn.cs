@@ -401,9 +401,19 @@ namespace SlingMD.Outlook
                         {
                             string subName = System.IO.Path.GetFileName(
                                 chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
-                            ObsidianSettings singleSettings = _settings.Clone();
-                            singleSettings.InboxFolder = System.IO.Path.Combine(_settings.InboxFolder, subName);
-                            singleProcessor = new EmailProcessor(singleSettings);
+
+                            // An empty leaf would make InboxFolder collapse back to the Inbox itself.
+                            // Falling through to the default processor says that plainly.
+                            if (!string.IsNullOrEmpty(subName))
+                            {
+                                // NOTE: this clone's InboxFolder holds a two-segment relative path
+                                // ("Inbox\Sub"), which ValidateFolderName rejects. It is safe only
+                                // because a clone is never Save()d — Save() runs against the live
+                                // _settings alone. Do not persist this object.
+                                ObsidianSettings singleSettings = _settings.Clone();
+                                singleSettings.InboxFolder = System.IO.Path.Combine(_settings.InboxFolder, subName);
+                                singleProcessor = new EmailProcessor(singleSettings);
+                            }
                         }
                     }
 
