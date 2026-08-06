@@ -104,6 +104,9 @@ namespace SlingMD.Tests.Forms
                     DefaultReminderDays = 3,
                     DefaultReminderHour = 14,
 
+                    // Email tab
+                    PromptForFolderOnSling = true,           // default false -> flip
+
                     // Threading tab
                     GroupEmailThreads = false,               // default true -> flip
                     MoveDateToFrontInThread = false,         // default true -> flip
@@ -157,6 +160,9 @@ namespace SlingMD.Tests.Forms
                 Assert.Equal(7, reloaded.DefaultDueDays);
                 Assert.Equal(3, reloaded.DefaultReminderDays);
                 Assert.Equal(14, reloaded.DefaultReminderHour);
+
+                // Email
+                Assert.True(reloaded.PromptForFolderOnSling);
 
                 // Threading
                 Assert.False(reloaded.GroupEmailThreads);

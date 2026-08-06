@@ -11,6 +11,14 @@ namespace SlingMD.Outlook.Models
         public string VaultName { get; set; } = "Logic";
         public string VaultBasePath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Notes");
         public string InboxFolder { get; set; } = "Inbox";
+
+        /// <summary>
+        /// When true, slinging a single email prompts for a destination subfolder under
+        /// <see cref="InboxFolder"/> instead of always writing to the Inbox folder itself.
+        /// Defaults to false so existing single-sling behavior is unchanged.
+        /// </summary>
+        public bool PromptForFolderOnSling { get; set; } = false;
+
         public string ContactsFolder { get; set; } = "Contacts";
         public bool EnableContactSaving { get; set; } = true;
         public bool SearchEntireVaultForContacts { get; set; } = false;

@@ -8,7 +8,8 @@ using System.Windows.Forms;
 namespace SlingMD.Outlook.Forms
 {
     /// <summary>
-    /// Folder picker used when slinging multiple emails at once. Lets the user choose an existing
+    /// Folder picker used when slinging emails — for a batch, and for a single email when
+    /// <see cref="Models.ObsidianSettings.PromptForFolderOnSling"/> is enabled. Lets the user choose an existing
     /// subfolder under the configured Inbox path, type a new one to be created, or skip and use the
     /// default Inbox path.
     /// </summary>
@@ -120,7 +121,7 @@ namespace SlingMD.Outlook.Forms
                 _btnOk, _btnSkip, _btnCancel
             });
 
-            this.Text = "Sling Multiple Emails";
+            this.Text = emailCount == 1 ? "Sling Email" : "Sling Multiple Emails";
             this.ClientSize = new Size(464, _btnOk.Bottom + 12);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;

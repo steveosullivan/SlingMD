@@ -246,6 +246,15 @@ namespace SlingMD.Outlook.Forms
                 },
                 new HelpEntry
                 {
+                    Id = "Email.PromptForFolderOnSling",
+                    Tab = "Email",
+                    Title = "Ask Where to Sling",
+                    Summary = "Prompt for a destination subfolder each time you sling a single email.",
+                    Description = "When on, slinging one email opens a folder picker listing subfolders under your Inbox folder, where you can also create a new one. Skip writes to the Inbox folder as usual; Cancel aborts the sling. Slinging multiple emails always prompts, regardless of this setting.",
+                    Default = "Off"
+                },
+                new HelpEntry
+                {
                     Id = "Email.NoteTitleFormat",
                     Tab = "Email",
                     Title = "Note Title Format",

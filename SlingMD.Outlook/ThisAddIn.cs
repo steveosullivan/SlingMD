@@ -375,7 +375,39 @@ namespace SlingMD.Outlook
 
                 if (mail != null)
                 {
-                    await _emailProcessor.ProcessEmail(mail);
+                    // When the user has opted into per-sling folder routing, ask where this one email
+                    // should land. Mirrors SlingMultipleEmails: never mutate the shared live settings —
+                    // route through a cloned settings/processor so background and auto slings keep
+                    // writing to the real Inbox.
+                    EmailProcessor singleProcessor = _emailProcessor;
+                    if (_settings.PromptForFolderOnSling)
+                    {
+                        BatchFolderPickerForm.PickerResult pick;
+                        string chosenFolder;
+                        using (BatchFolderPickerForm picker = new BatchFolderPickerForm(1, _settings.GetInboxPath()))
+                        {
+                            picker.ShowDialog();
+                            pick = picker.Result;
+                            chosenFolder = picker.SelectedFolderPath;
+                        }
+
+                        if (pick == BatchFolderPickerForm.PickerResult.Cancel)
+                        {
+                            return;
+                        }
+
+                        if (pick == BatchFolderPickerForm.PickerResult.UseSubfolder
+                            && !string.IsNullOrEmpty(chosenFolder))
+                        {
+                            string subName = System.IO.Path.GetFileName(
+                                chosenFolder.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar));
+                            ObsidianSettings singleSettings = _settings.Clone();
+                            singleSettings.InboxFolder = System.IO.Path.Combine(_settings.InboxFolder, subName);
+                            singleProcessor = new EmailProcessor(singleSettings);
+                        }
+                    }
+
+                    await singleProcessor.ProcessEmail(mail);
                 }
                 else if (appointment != null)
                 {
