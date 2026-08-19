@@ -56,6 +56,7 @@ namespace SlingMD.Outlook.Services
         private readonly ContactLinkFormatter _contactLinkFormatter;
         private readonly SubjectFilenameCleaner _subjectFilenameCleaner;
         private readonly NoteTitleBuilder _noteTitleBuilder;
+        private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
         private readonly IClock _clock;
 
         /// <summary>
@@ -376,10 +377,22 @@ namespace SlingMD.Outlook.Services
                             var mdFiles = Directory.GetFiles(_settings.GetInboxPath(), "*.md", SearchOption.TopDirectoryOnly);
                             foreach (var file in mdFiles)
                             {
-                                // Read front matter to get threadId
+                                // Read front matter to get threadId. One locked/unreadable neighbour
+                                // must not abort the export of an email whose note is already written
+                                // (mirrors the per-file guard in EnsureEmailCacheIsBuilt).
                                 bool inFrontMatter = false;
                                 string foundThreadId = null;
-                                foreach (var line in File.ReadLines(file))
+                                IEnumerable<string> lines;
+                                try
+                                {
+                                    lines = File.ReadLines(file).ToList();
+                                }
+                                catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                                {
+                                    Logger.Instance.Warning($"EmailProcessor: skipping unreadable inbox note '{file}': {ex.Message}");
+                                    continue;
+                                }
+                                foreach (var line in lines)
                                 {
                                     if (line.Trim() == "---")
                                     {
@@ -478,6 +491,29 @@ namespace SlingMD.Outlook.Services
                     }
                     else
                     {
+                        // A DIFFERENT email can produce the same subject/sender/minute filename
+                        // (same-message re-slings never get here — IsDuplicateEmail returns above).
+                        // Never overwrite an existing note: resolve to a "_N"-suffixed free name
+                        // and re-render so the task self-link and FileName tokens match the final
+                        // name (mirrors the threaded branch after resuffixing).
+                        string resolvedPath = _uniqueFilenameResolver.Resolve(_settings.GetInboxPath(), fileName, File.Exists);
+                        if (resolvedPath != null && !string.Equals(resolvedPath, filePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            filePath = resolvedPath;
+                            fileName = Path.GetFileName(resolvedPath);
+                            fileNameNoExt = Path.GetFileNameWithoutExtension(resolvedPath);
+                            obsidianLinkPath = fileNameNoExt;
+                            renderedContent = BuildEmailNoteContent(
+                                mail,
+                                metadata,
+                                noteTitle,
+                                subjectClean,
+                                senderClean,
+                                fileNameNoExt,
+                                conversationId,
+                                threadNoteLink);
+                        }
+
                         // Write the note as usual to the inbox
                         _fileService.WriteUtf8File(filePath, renderedContent);
 
@@ -532,7 +568,23 @@ namespace SlingMD.Outlook.Services
                 }
                 catch (System.Exception ex)
                 {
-                    MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Logger.Instance.Error($"EmailProcessor.ProcessEmail failed: {ex.Message}");
+                    if (bulkMode)
+                    {
+                        // Background monitors and batch slings share this path; a modal dialog per
+                        // failed email would block the Outlook UI thread (and stack up one per
+                        // inbound message when the vault is offline). Non-modal toast instead,
+                        // honoring the same notification mode NotificationService uses.
+                        if (_settings.AutoSlingNotificationMode == "Toast")
+                        {
+                            try { ToastForm.ShowToast($"SlingMD: email export failed — {ex.Message}", isError: true); }
+                            catch { /* Silently degrade if toast display fails */ }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Error processing email: {ex.Message}", "SlingMD Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
 
