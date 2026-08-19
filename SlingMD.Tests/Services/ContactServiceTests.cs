@@ -369,8 +369,9 @@ namespace SlingMD.Tests.Services
             Assert.True(File.Exists(logPath), "Ambiguous match log should have been created.");
             string logContent = File.ReadAllText(logPath);
             Assert.Contains("Bob James Smith", logContent);
-            Assert.Contains("[[Bob Smith Jr.]]", logContent);
-            Assert.Contains("[[Bob Smith Sr.]]", logContent);
+            // Candidate wikilinks use the file stem (no ".md") so they resolve in Obsidian.
+            Assert.Contains("[[Bob Smith Jr]]", logContent);
+            Assert.Contains("[[Bob Smith Sr]]", logContent);
         }
 
         [Fact]
