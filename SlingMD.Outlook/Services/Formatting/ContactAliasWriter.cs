@@ -69,7 +69,9 @@ namespace SlingMD.Outlook.Services.Formatting
             string tempPath = filePath + ".tmp." + Guid.NewGuid().ToString("N");
             try
             {
-                File.WriteAllText(tempPath, newContent, Encoding.UTF8);
+                // BOM-less UTF-8, matching FileService: Encoding.UTF8 would prepend a BOM,
+                // which Obsidian renders as a stray glyph on the first line of the note.
+                File.WriteAllText(tempPath, newContent, new UTF8Encoding(false));
                 File.Replace(tempPath, filePath, null);
             }
             catch

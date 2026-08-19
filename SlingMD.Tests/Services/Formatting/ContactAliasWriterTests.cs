@@ -320,5 +320,27 @@ namespace SlingMD.Tests.Services.Formatting
             // The total count should have increased
             Assert.True(aliases.Count >= 2);
         }
+
+        // ── Encoding ───────────────────────────────────────────────────────
+
+        [Fact]
+        public void TryAppendAlias_BomlessNote_DoesNotIntroduceUtf8Bom()
+        {
+            // Vault notes are written BOM-less (FileService uses new UTF8Encoding(false)).
+            // Appending an alias must not prepend a BOM, which Obsidian renders as a stray
+            // glyph on the first line of the note.
+            string path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".md");
+            _tempFiles.Add(path);
+            File.WriteAllText(
+                path,
+                "---" + "\n" + "aliases:" + "\n" + "  - Plain" + "\n" + "---" + "\n",
+                new UTF8Encoding(false));
+
+            _writer.TryAppendAlias(path, "Another Alias");
+
+            byte[] bytes = File.ReadAllBytes(path);
+            bool hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+            Assert.False(hasBom, "Alias write must preserve BOM-less UTF-8 encoding.");
+        }
     }
 }
