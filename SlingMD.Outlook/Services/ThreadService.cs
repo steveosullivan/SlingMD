@@ -26,6 +26,7 @@ namespace SlingMD.Outlook.Services
         private readonly ThreadIdHasher _threadIdHasher;
         private readonly FrontmatterReader _frontmatter;
         private readonly LegacyFilenameStripper _legacyFilenameStripper;
+        private readonly UniqueFilenameResolver _uniqueFilenameResolver = new UniqueFilenameResolver();
 
         public ThreadService(FileService fileService, TemplateService templateService, ObsidianSettings settings)
         {
@@ -265,7 +266,16 @@ namespace SlingMD.Outlook.Services
             {
                 if (File.Exists(threadPath))
                 {
-                    File.Delete(threadPath);
+                    // Two distinct notes can truncate to the same -eid name under the path budget.
+                    // Never delete the incumbent — move to a "_N"-suffixed free name instead.
+                    string resolved = _uniqueFilenameResolver.Resolve(threadFolderPath, newFileName, File.Exists);
+                    if (resolved == null)
+                    {
+                        Helpers.Logger.Instance.Warning(
+                            $"ThreadService.MoveToThreadFolder: no free name for '{newFileName}' in '{threadFolderPath}'; leaving note in inbox.");
+                        return emailPath;
+                    }
+                    threadPath = resolved;
                 }
                 File.Move(emailPath, threadPath);
                 return threadPath;
