@@ -444,6 +444,14 @@ namespace SlingMD.Outlook.Services
                                     threadNoteLink);
                                 _fileService.WriteUtf8File(filePath, renderedContent);
                             }
+                            else
+                            {
+                                // Resuffix couldn't track the just-written note (e.g. unparsable
+                                // frontmatter date). The file on disk is still the -eid temp name,
+                                // but obsidianLinkPath retains GetThreadingInfo's non-eid value —
+                                // point it at the real file so Obsidian doesn't open "not found".
+                                obsidianLinkPath = $"{threadNoteName}/{fileNameNoExt}";
+                            }
 
                             // Create or update the thread summary note
                             await _threadService.UpdateThreadNote(threadFolderPath, threadNotePath, conversationId, threadNoteName, mail);
