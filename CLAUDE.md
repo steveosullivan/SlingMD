@@ -8,11 +8,18 @@ SlingMD is a .NET Framework 4.7.2 C# Outlook VSTO add-in that exports emails to 
 - **SlingMD.Tests**: xUnit test project with Moq for mocking
 
 ## Build and Test Commands
-- **Build**: `dotnet build SlingMD.sln --configuration Release`
-- **Build single project**: `dotnet build SlingMD.Outlook\SlingMD.Outlook.csproj --configuration Release`
-- **Run tests**: `dotnet test SlingMD.Tests\SlingMD.Tests.csproj`
-- **Publish add-in**: `dotnet publish SlingMD.Outlook\SlingMD.Outlook.csproj --configuration Release`
-- **Package for distribution**: `.\package-release.ps1` (creates versioned ZIP in Releases/)
+**The `dotnet` CLI does NOT work on this repo** — the VSTO project imports
+`Microsoft.VisualStudio.Tools.Office.targets`, which only ships with Visual Studio.
+`dotnet build`/`dotnet test` fail with MSB4019. Use VS MSBuild and VSTest instead:
+- **Build**: `& "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" SlingMD.sln -t:Build -p:Configuration=Release`
+- **Build single project**: same MSBuild.exe with `SlingMD.Outlook\SlingMD.Outlook.csproj`
+- **Run tests**: build Debug, then `& "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\Extensions\TestPlatform\vstest.console.exe" SlingMD.Tests\bin\Debug\SlingMD.Tests.dll` (filter with `/Tests:Name` or `/TestCaseFilter:"FullyQualifiedName~X"`)
+- **Publish add-in**: use Visual Studio interactively (Build > Publish SlingMD.Outlook). CLI `msbuild -t:Publish` does not reliably regenerate the ClickOnce payload for VSTO projects.
+- **Package for distribution**: `.\package-release.ps1` (creates versioned ZIP in Releases/; refuses to package if the publish payload is stale vs the fresh Release build)
+
+**Test files must be added to `SlingMD.Tests.csproj` explicitly** — the project uses
+explicit `<Compile Include=...>` items, no globbing. A new test .cs file that isn't
+referenced there silently never compiles or runs.
 
 ## Architecture
 
