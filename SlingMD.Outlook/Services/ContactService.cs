@@ -669,7 +669,9 @@ namespace SlingMD.Outlook.Services
             }
 
             // The note exists but may be locked (open in Obsidian, transient AV). A failed read here
-            // must not abort the whole email export — fall back to writing the freshly rendered note.
+            // must not abort the whole email export — but it must NOT overwrite either: the merge
+            // below exists to preserve user-authored content, and rewriting from the template on a
+            // transient lock would silently destroy it. Skip the refresh; the next sling retries.
             string existingContent;
             try
             {
@@ -677,8 +679,7 @@ namespace SlingMD.Outlook.Services
             }
             catch (System.Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                Logger.Instance.Warning($"ContactService.CreateContactNote: could not read existing note '{filePath}', rewriting fresh: {ex.Message}");
-                _fileService.WriteUtf8File(filePath, renderedContent);
+                Logger.Instance.Warning($"ContactService.CreateContactNote: could not read existing note '{filePath}', skipping refresh to preserve user content: {ex.Message}");
                 return;
             }
 
