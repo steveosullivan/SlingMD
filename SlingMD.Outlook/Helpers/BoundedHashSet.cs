@@ -80,6 +80,25 @@ namespace SlingMD.Outlook.Helpers
         }
 
         /// <summary>
+        /// Removes the item from the set. Returns true if it was present.
+        /// Used to un-reserve an id whose processing failed, so a retry isn't
+        /// permanently deduplicated away.
+        /// </summary>
+        public bool Remove(string item)
+        {
+            lock (_lock)
+            {
+                if (!_set.Remove(item))
+                {
+                    return false;
+                }
+
+                _order.Remove(item);
+                return true;
+            }
+        }
+
+        /// <summary>
         /// Removes all items from the set.
         /// </summary>
         public void Clear()

@@ -162,6 +162,46 @@ namespace SlingMD.Tests.Helpers
         }
 
         [Fact]
+        public void Remove_PresentItem_ReturnsTrueAndAllowsReAdd()
+        {
+            BoundedHashSet set = new BoundedHashSet(100);
+            set.Add("item1");
+
+            bool removed = set.Remove("item1");
+
+            Assert.True(removed);
+            Assert.False(set.Contains("item1"));
+            // The freed slot must be reusable (un-reserve on failed processing)
+            Assert.True(set.Add("item1"));
+        }
+
+        [Fact]
+        public void Remove_AbsentItem_ReturnsFalse()
+        {
+            BoundedHashSet set = new BoundedHashSet(100);
+
+            Assert.False(set.Remove("missing"));
+        }
+
+        [Fact]
+        public void Remove_ThenFillToCapacity_EvictionStillConsistent()
+        {
+            // Removing must also drop the LRU-order entry, or a later eviction
+            // would desync the order list from the set.
+            BoundedHashSet set = new BoundedHashSet(2);
+            set.Add("a");
+            set.Add("b");
+            set.Remove("a");
+            set.Add("c");
+            set.Add("d"); // evicts oldest remaining ("b")
+
+            Assert.False(set.Contains("b"));
+            Assert.True(set.Contains("c"));
+            Assert.True(set.Contains("d"));
+            Assert.Equal(2, set.Count);
+        }
+
+        [Fact]
         public void Constructor_CustomComparer_IsRespected()
         {
             // Arrange

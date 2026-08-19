@@ -159,7 +159,25 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                bool slung = false;
+                try
+                {
+                    slung = await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                }
+                finally
+                {
+                    // Un-reserve on failure so a transient error (vault offline, file lock)
+                    // doesn't permanently deduplicate this email away.
+                    if (!slung)
+                    {
+                        _processedEntryIds.Remove(entryId);
+                    }
+                }
+                if (!slung)
+                {
+                    // Don't categorize or notify an email that wasn't exported.
+                    return;
+                }
 
                 try
                 {

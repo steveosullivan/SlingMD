@@ -215,7 +215,24 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                bool slung = false;
+                try
+                {
+                    slung = await _emailProcessor.ProcessEmail(mail, contactMode: ContactInteractionMode.Automated, bulkMode: true);
+                }
+                finally
+                {
+                    // Un-reserve on failure so a transient error (vault offline, file lock)
+                    // doesn't permanently deduplicate this email away.
+                    if (!slung)
+                    {
+                        _processedEntryIds.Remove(entryId);
+                    }
+                }
+                if (!slung)
+                {
+                    return;
+                }
 
                 string subject = SafeComAction.Execute(() => mail.Subject, "AutoSlingService.ProcessSingleEmail: Subject", "Unknown");
                 string ruleLabel = eligibility.MatchedRule != null ? $" [{eligibility.MatchedRule.Type}:{eligibility.MatchedRule.Pattern}]" : string.Empty;
