@@ -116,10 +116,10 @@ namespace SlingMD.Outlook.Services
                 }
             }
 
+            // Clear (don't null) so a stop→start on the same instance can't NRE inside
+            // StartWatching's per-folder try, which would silently leave folders unmonitored.
             _watchedFolderItems.Clear();
             _watchedFolderObjects.Clear();
-            _watchedFolderItems = null;
-            _watchedFolderObjects = null;
         }
 
         /// <summary>
@@ -130,10 +130,8 @@ namespace SlingMD.Outlook.Services
         /// </summary>
         public void Dispose()
         {
-            if (_watchedFolderItems != null || _watchedFolderObjects != null)
-            {
-                StopWatching();
-            }
+            // StopWatching is idempotent (clears its dictionaries), so no guard is needed.
+            StopWatching();
         }
 
         private async void OnItemAdded(object item)
@@ -300,7 +298,9 @@ namespace SlingMD.Outlook.Services
                 // Find the root store (account) matching parts[0]
                 foreach (MAPIFolder storeFolder in rootFolders)
                 {
-                    if (string.Equals(storeFolder.Name, parts[0], StringComparison.OrdinalIgnoreCase))
+                    // Duplicate names are possible (two accounts each with "Inbox"); keep the
+                    // first match and release everything else, or the superseded RCW leaks.
+                    if (current == null && string.Equals(storeFolder.Name, parts[0], StringComparison.OrdinalIgnoreCase))
                     {
                         current = storeFolder;
                     }
@@ -325,7 +325,9 @@ namespace SlingMD.Outlook.Services
                         subFolders = current.Folders;
                         foreach (MAPIFolder subFolder in subFolders)
                         {
-                            if (string.Equals(subFolder.Name, parts[i], StringComparison.OrdinalIgnoreCase))
+                            // Keep the first match; release duplicates so no RCW is superseded
+                            // without being released.
+                            if (found == null && string.Equals(subFolder.Name, parts[i], StringComparison.OrdinalIgnoreCase))
                             {
                                 found = subFolder;
                             }

@@ -245,23 +245,34 @@ namespace SlingMD.Outlook
             _flagMonitorService?.SignalShutdown();
             _folderMonitorService?.SignalShutdown();
 
-            _autoSlingService?.Shutdown();
-            _flagMonitorService?.Stop();
-            _folderMonitorService?.StopWatching();
-
-            if (_activeExplorer != null)
+            // Guarded like Startup: an exception escaping a VSTO Shutdown handler risks Outlook
+            // hard-disabling the add-in on next launch, and would skip the teardown steps and
+            // settings save below. Unhooking/releasing an Explorer RCW during Outlook teardown is
+            // a known COMException source.
+            try
             {
-                _activeExplorer.SelectionChange -= Explorer_SelectionChange;
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(_activeExplorer);
-                _activeExplorer = null;
+                _autoSlingService?.Shutdown();
+                _flagMonitorService?.Stop();
+                _folderMonitorService?.StopWatching();
+
+                if (_activeExplorer != null)
+                {
+                    _activeExplorer.SelectionChange -= Explorer_SelectionChange;
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(_activeExplorer);
+                    _activeExplorer = null;
+                }
+
+                _ribbon?.Dispose();
+
+                if (_uiMarshaler != null)
+                {
+                    _uiMarshaler.Dispose();
+                    _uiMarshaler = null;
+                }
             }
-
-            _ribbon?.Dispose();
-
-            if (_uiMarshaler != null)
+            catch (System.Exception ex)
             {
-                _uiMarshaler.Dispose();
-                _uiMarshaler = null;
+                Logger.Instance.Error($"ThisAddIn.Shutdown: teardown failed: {ex.Message}");
             }
 
             if (_settings != null)

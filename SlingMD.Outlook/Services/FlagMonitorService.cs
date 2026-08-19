@@ -62,24 +62,43 @@ namespace SlingMD.Outlook.Services
 
         public void Stop()
         {
-            try
+            // Each unhook/release gets its own guard so one throw can't skip the rest and
+            // leak a live RCW past shutdown (mirrors FolderMonitorService.StopWatching).
+            if (_inboxItems != null)
             {
-                if (_inboxItems != null)
+                try
                 {
                     _inboxItems.ItemChange -= OnItemChange;
-                    Marshal.ReleaseComObject(_inboxItems);
-                    _inboxItems = null;
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Error($"FlagMonitorService.Stop: could not unsubscribe ItemChange: {ex.Message}");
                 }
 
-                if (_inboxFolder != null)
+                try
+                {
+                    Marshal.ReleaseComObject(_inboxItems);
+                }
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Error($"FlagMonitorService.Stop: could not release Items COM object: {ex.Message}");
+                }
+
+                _inboxItems = null;
+            }
+
+            if (_inboxFolder != null)
+            {
+                try
                 {
                     Marshal.ReleaseComObject(_inboxFolder);
-                    _inboxFolder = null;
                 }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Instance.Error($"FlagMonitorService.Stop failed: {ex.Message}");
+                catch (System.Exception ex)
+                {
+                    Logger.Instance.Error($"FlagMonitorService.Stop: could not release MAPIFolder COM object: {ex.Message}");
+                }
+
+                _inboxFolder = null;
             }
         }
 

@@ -135,7 +135,15 @@ namespace SlingMD.Outlook.Services
                     return;
                 }
 
-                session = _outlookApp.Session;
+                // Shutdown() nulls _outlookApp while OnNewMailEx may be parked at an await between
+                // batch items; bail before dereferencing rather than NRE-ing mid-batch.
+                Application app = _outlookApp;
+                if (_shuttingDown || app == null)
+                {
+                    return;
+                }
+
+                session = app.Session;
                 try
                 {
                     mail = session.GetItemFromID(entryId) as MailItem;
