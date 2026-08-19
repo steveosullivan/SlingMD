@@ -633,7 +633,7 @@ namespace SlingMD.Outlook.Services
             string filePath = GetManagedContactNotePath(contactName);
             string fileNameNoExtension = Path.GetFileNameWithoutExtension(filePath);
 
-            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
+            string created = _dateFormatter.FormatOrDefault(_clock.Now, _settings.ContactDateFormat, _dateFormatter.Format(_clock.Now, "yyyy-MM-dd"));
             ContactTemplateContext context = new ContactTemplateContext
             {
                 Metadata = new Dictionary<string, object>
@@ -867,7 +867,7 @@ namespace SlingMD.Outlook.Services
             string cleanName = _fileService.CleanFileName(fullName);
             string fileNameNoExtension = _fileService.CleanFileName(fullName);
 
-            string created = _dateFormatter.Format(_clock.Now, _settings.ContactDateFormat);
+            string created = _dateFormatter.FormatOrDefault(_clock.Now, _settings.ContactDateFormat, _dateFormatter.Format(_clock.Now, "yyyy-MM-dd"));
             Dictionary<string, object> metadata = new Dictionary<string, object>
             {
                 { "title", fullName },

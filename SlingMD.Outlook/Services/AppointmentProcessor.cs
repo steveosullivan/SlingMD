@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -950,8 +950,8 @@ namespace SlingMD.Outlook.Services
                 { "organizer", FormatPersonLink(organizerName) },
                 { "organizerEmail", organizerEmail ?? string.Empty },
                 { "location", location ?? string.Empty },
-                { "startDateTime", _dateFormatter.Format(startTime, _settings.AppointmentDateFormat) },
-                { "endDateTime", _dateFormatter.Format(endTime, _settings.AppointmentDateFormat) },
+                { "startDateTime", _dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd HH:mm")) },
+                { "endDateTime", _dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, "yyyy-MM-dd HH:mm")) },
                 { "recurrence", recurrenceState.ToString() },
                 { "globalAppointmentId", globalAppointmentId ?? string.Empty }
             };
@@ -1037,8 +1037,8 @@ namespace SlingMD.Outlook.Services
                 content.AppendLine();
             }
 
-            content.AppendLine($"**Start:** {_dateFormatter.Format(startTime, _settings.AppointmentDateFormat)}");
-            content.AppendLine($"**End:** {_dateFormatter.Format(endTime, _settings.AppointmentDateFormat)}");
+            content.AppendLine($"**Start:** {_dateFormatter.FormatOrDefault(startTime, _settings.AppointmentDateFormat, _dateFormatter.Format(startTime, "yyyy-MM-dd HH:mm"))}");
+            content.AppendLine($"**End:** {_dateFormatter.FormatOrDefault(endTime, _settings.AppointmentDateFormat, _dateFormatter.Format(endTime, "yyyy-MM-dd HH:mm"))}");
             content.AppendLine();
 
             if (!string.IsNullOrWhiteSpace(organizerName))
