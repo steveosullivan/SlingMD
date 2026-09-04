@@ -858,7 +858,9 @@ namespace SlingMD.Outlook.Services
                 SenderEmail = _contactService.GetSenderEmail(mail),
                 Date = mail.ReceivedTime.ToString("yyyy-MM-dd"),
                 Timestamp = _dateFormatter.FormatOrDefault(mail.ReceivedTime, _settings.EmailDateFormat, _dateFormatter.Format(mail.ReceivedTime, "yyyy-MM-dd HH:mm:ss")),
-                Body = mail.Body ?? string.Empty,
+                // Convert the email's HTML body to Markdown so links are clickable and images
+                // embed in Obsidian. Falls back to the plain-text body if there is no HTML.
+                Body = HtmlToMarkdownConverter.Convert(mail.HTMLBody, mail.Body),
                 TaskBlock = taskBlock,
                 FileName = fileNameNoExt + ".md",
                 FileNameWithoutExtension = fileNameNoExt,
@@ -897,12 +899,18 @@ namespace SlingMD.Outlook.Services
             {
                 { "Subject", subjectClean },
                 { "Sender", senderClean },
-                { "Date", mail.ReceivedTime.ToString("yyyy-MM-dd") },
+                { "SenderFull", mail.SenderName ?? senderClean },
+                { "Date", mail.ReceivedTime.ToString("MM-dd-yyyy") },
                 { "Timestamp", fileDateTime },
                 { "Threaded", isThreaded ? "true" : "false" }
             };
 
-            return _templateService.RenderFilename(_settings.EmailFilenameFormat, replacements, legacyBaseName);
+            // Assemble the filename from individually-cleaned parts so the " - " separators are
+            // added AFTER subject cleanup (which would otherwise strip " - ") and thus survive.
+            string subjectPart = _fileService.CleanFileName(subjectClean);
+            string senderPart = _fileService.CleanFileName(mail.SenderName ?? senderClean);
+            string datePart = mail.ReceivedTime.ToString("MM-dd-yyyy");
+            return $"{subjectPart} - {senderPart} - {datePart}";
         }
 
         /// <summary>
@@ -964,10 +972,16 @@ namespace SlingMD.Outlook.Services
                 { "fromEmail", senderEmail },
                 { "to", toLinked },
                 { "toEmail", toEmails },
-                { "threadId", conversationId },
-                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd HH:mm:ss")) },
-                { "internetMessageId", realInternetMessageId },
-                { "entryId", realEntryId }
+                { "date", _dateFormatter.FormatOrDefault(receivedTime, _settings.EmailDateFormat, _dateFormatter.Format(receivedTime, "yyyy-MM-dd HH:mm:ss")) }
+                // --- Removed from Properties per user request ---
+                // To restore any of these, uncomment the line AND add a comma after the "date"
+                // line above so the collection initializer stays valid.
+                //   threadId          -> also used for thread grouping (GroupEmailThreads)
+                //   internetMessageId -> also used for cross-restart duplicate detection
+                //   entryId           -> also used for cross-restart duplicate detection
+                // { "threadId", conversationId },
+                // { "internetMessageId", realInternetMessageId },
+                // { "entryId", realEntryId }
             };
 
             if (_settings.IncludeDailyNoteLink)

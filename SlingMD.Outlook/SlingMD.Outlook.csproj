@@ -317,6 +317,7 @@
     <Compile Include="Services\Formatting\DateFormatter.cs" />
     <Compile Include="Services\Formatting\EmailAddressParser.cs" />
     <Compile Include="Services\Formatting\FileNameSanitizer.cs" />
+    <Compile Include="Services\Formatting\HtmlToMarkdownConverter.cs" />
     <Compile Include="Services\Formatting\FilenameSubjectNormalizer.cs" />
     <Compile Include="Services\Formatting\ContactIndex.cs" />
     <Compile Include="Services\Formatting\ContactIndexEntry.cs" />
@@ -436,7 +437,7 @@
     <ManifestKeyFile>SlingMD.Outlook_TemporaryKey.pfx</ManifestKeyFile>
   </PropertyGroup>
   <PropertyGroup>
-    <ManifestCertificateThumbprint>736CF7BD97289EC0E7B925A4364C54B1822892F2</ManifestCertificateThumbprint>
+    <ManifestCertificateThumbprint>284AEED1F644213C14E4CD5480DFB6727D9854D1</ManifestCertificateThumbprint>
   </PropertyGroup>
   <!-- Include the build rules for a C# project. -->
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
